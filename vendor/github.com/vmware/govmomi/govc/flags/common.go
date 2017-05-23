@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015 VMware, Inc. All Rights Reserved.
+Copyright (c) 2015-2016 VMware, Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,31 +13,26 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+package flags
 
-package object
+import "sync"
 
-import (
-	"github.com/vmware/govmomi/vim25"
-	"github.com/vmware/govmomi/vim25/methods"
-	"github.com/vmware/govmomi/vim25/types"
-	"golang.org/x/net/context"
-)
+// Key type for storing flag instances in a context.Context.
+type flagKey string
 
-type ListView struct {
-	Common
+// Type to help flags out with only registering/processing once.
+type common struct {
+	register sync.Once
+	process  sync.Once
 }
 
-func NewListView(c *vim25.Client, ref types.ManagedObjectReference) *ListView {
-	return &ListView{
-		Common: NewCommon(c, ref),
-	}
+func (c *common) RegisterOnce(fn func()) {
+	c.register.Do(fn)
 }
 
-func (v ListView) Destroy(ctx context.Context) error {
-	req := types.DestroyView{
-		This: v.Reference(),
-	}
-
-	_, err := methods.DestroyView(ctx, v.c, &req)
+func (c *common) ProcessOnce(fn func() error) (err error) {
+	c.process.Do(func() {
+		err = fn()
+	})
 	return err
 }
